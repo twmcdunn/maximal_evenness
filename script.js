@@ -88,17 +88,17 @@ class VisualOnset {
 
 function createOnsets(svg, onsets, nodes, setting) {
     let onsetArr = [];
-    onsets = Number(onsets);
+    //onsets = Number(onsets);
     for (let i = 0; i < onsets; i++) {
-        let rad = Math.PI * 2 * i / onsets;
+        let rad = Math.PI * 2 * i / Number(onsets);
 
-        let dest = Math.PI * 2 * Math.round(nodes * (i / onsets)) / onsets;
+        let dest = Math.PI * 2 * Math.round(nodes * (i / Number(onsets))) / Number(nodes);
         switch (setting) {
             case 1:
-                dest = dest = Math.PI * 2 * Math.floor(nodes * (i / onsets)) / onsets;
+                dest = dest = Math.PI * 2 * Math.floor(nodes * (i / Number(onsets))) / Number(nodes);
                 break;
             case 2:
-                dest = dest = Math.PI * 2 * (1 + Math.floor(nodes * (i / onsets))) / onsets;
+                dest = dest = Math.PI * 2 * (1 + Math.floor(nodes * (i / Number(onsets)))) / Number(nodes);
                 break;
         }
         let os = new VisualOnset(rad, dest, rad);
@@ -114,7 +114,7 @@ function createOnsets(svg, onsets, nodes, setting) {
 onsetArr = createOnsets(svg, 8, 12, 0);
 
 let frame = 0;
-let totFrames = 1000;
+let totFrames = 3 * 1000 / 50;
 
 async function sleep(msec) {
     return new Promise(resolve => setTimeout(resolve, msec));
