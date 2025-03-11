@@ -131,6 +131,14 @@ async function animate() {
         frame++;
         await sleep(50);
     }
+    onsetArr.forEach((onset) => {
+        nodes.forEach((node) => {
+            if(node.x === onset.x && node.y === onset.y){
+                node.filled = true;
+                node.updateSVG();
+            }
+        });
+    });
 }
 
 
