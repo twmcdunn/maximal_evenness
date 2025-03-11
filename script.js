@@ -24,7 +24,7 @@ function buildAnimation(svg, specSteps, genSteps, setting, nodeNames) {
             this.svg = document.createElementNS("http://www.w3.org/2000/svg", "circle");
             this.name = document.createElementNS("http://www.w3.org/2000/svg", "text");
             this.name.textContent = name;
-            this.
+            //this.
 
             this.updateSVG();
         }
