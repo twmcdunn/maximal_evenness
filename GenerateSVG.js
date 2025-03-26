@@ -1,11 +1,27 @@
 
 var jsdom = require('jsdom');
+const convertSvgToJpeg = require('convert-svg-to-jpeg');
 const { JSDOM } = jsdom;
 
 const d3 = require('d3');
 const fs = require('fs');
 
+var WebSocketServer = require('ws');
 
+const wss = new WebSocketServer.Server(
+    { port: 8080
+    }
+)
+
+var frame = 0;
+
+wss.on("connection", ws => {
+    ws.on("message", data => {
+        //console.log();//data.toString());
+        fs.writeFileSync('frames/' + frame + '.svg', data.toString());
+        frame++;
+    });
+});
 
 const dom = new JSDOM(`<!DOCTYPE html><body></body>`);
 

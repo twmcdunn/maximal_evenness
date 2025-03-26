@@ -1,11 +1,40 @@
 
 //https://developer.mozilla.org/en-US/docs/Web/API/Element/animate
+var ws = new WebSocket("ws://localhost:8080");
+
 
 async function sleep(msec) {
     return new Promise(resolve => setTimeout(resolve, msec));
 }
 
-function buildAnimation(svg, specSteps, genSteps, setting, nodeNames) {
+let masterSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+masterSvg.setAttribute("x", "0");
+masterSvg.setAttribute("y", "0");
+masterSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg")
+
+masterSvg.setAttribute("width", "1500");
+masterSvg.setAttribute("height", "1500");
+document.body.appendChild(masterSvg);
+
+function snapshot() {
+    ws.send(masterSvg.outerHTML);
+    /*
+    //move all the elements of body to a master svg
+    for(let n = 0; n < document.body.children.length; n++){
+        masterSvg.appendChild(document.body.children[n]);
+    }
+
+    //send the master to the server
+    ws.send(masterSvg.outerHTML);
+
+    //move all the elements of the master back to the body
+    for(let n = 0; n < masterSvg.children.length; n++){
+        document.body.appendChild(masterSvg.children[n]);
+    }
+    */
+}
+
+function buildAnimation(svg, specSteps, genSteps, setting, nodeNames, omitPolygon) {
 
 
     let circ = document.createElementNS("http://www.w3.org/2000/svg", "circle");
@@ -123,8 +152,10 @@ function buildAnimation(svg, specSteps, genSteps, setting, nodeNames) {
                     break;
             }
             let os = new VisualOnset(rad, dest, rad);
-            svg.appendChild(os.line);
-            svg.appendChild(os.circle);
+            if (!omitPolygon) {
+                svg.appendChild(os.line);
+                svg.appendChild(os.circle);
+            }
             onsetArr.push(os);
         }
         for (let i = 0; i < onsets; i++) {
@@ -133,10 +164,20 @@ function buildAnimation(svg, specSteps, genSteps, setting, nodeNames) {
         return onsetArr;
     }
 
-
-
     let onsetArr = createOnsets(svg, genSteps, specSteps, setting);
     let nodes = createNodes(svg, specSteps);
+
+    function addPolygon() {
+        onsetArr.forEach((os) => {
+            svg.appendChild(os.line);
+            svg.appendChild(os.circle);
+        });
+        //still put nodes on top
+        nodes.forEach((visualNode) => {
+            svg.appendChild(visualNode.svg);
+            svg.appendChild(visualNode.name);
+        });
+    }
 
     class Diagram {
         constructor(onsetArr, nodes, svg) {
@@ -146,10 +187,29 @@ function buildAnimation(svg, specSteps, genSteps, setting, nodeNames) {
         }
     }
 
+    let labelText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    labelText.textContent = "Snap to the Closest";
+    switch (setting) {
+        case 1:
+            labelText.textContent = "Snap to the Left";
+            break;
+        case 2:
+            labelText.textContent = "Snap to the Right";
+            break;
+    }
+    labelText.setAttribute("dominant-baseline", "central");
+    labelText.setAttribute("text-anchor", "middle");
+    labelText.setAttribute("x", 250 + Number(svg.getAttribute("x")));
+    labelText.setAttribute("y", 530);
+    labelText.setAttribute("font-size", "2em");
+
     let frame = 0;
     let totFrames = 1.5 * 1000 / 50;
 
     async function animate() {
+
+        masterSvg.appendChild(labelText);
+
         while (frame - 1 < totFrames) {
             for (let i = 0; i < onsetArr.length; i++) {
                 onsetArr[i].setRadFromFrame(frame, totFrames);
@@ -158,6 +218,7 @@ function buildAnimation(svg, specSteps, genSteps, setting, nodeNames) {
                 onsetArr[i].updateSVG(onsetArr[(i + 1) % onsetArr.length]);
             }
             frame++;
+            //snapshot();
             await sleep(50);
         }
         onsetArr.forEach((onset) => {
@@ -168,12 +229,17 @@ function buildAnimation(svg, specSteps, genSteps, setting, nodeNames) {
                 }
             });
         });
+
+
+        //console.log(masterSvg.outerHTML);
+        //snapshot();
         svg.onclick = animate1;
+        //document.body.onclick = animates.shift();
     }
 
     svg.onclick = animate;
 
-    return { onsetArr, nodes, svg };
+    return { onsetArr, nodes, svg, animate, addPolygon, labelText };
 }
 
 /*
@@ -187,23 +253,53 @@ scaleableFrame.setAttribute("transform", "scale(0.5)");
 */
 
 diagrams = []
-for (let setting = 0; setting < 3; setting++) {
-    let svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("x", (10 + setting * 500).toString());
-    svg.setAttribute("y", "10");
+let animates = []
 
-    svg.setAttribute("width", "500");
-    svg.setAttribute("height", "500");
+let svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+svg.setAttribute("x", "510");
+svg.setAttribute("y", "10");
+
+svg.setAttribute("width", "500");
+svg.setAttribute("height", "500");
+
+let dgObj = buildAnimation(svg, 12, 5, 0, ["C", "C\u266F", "D", "E\u266D", "E", "F", "F\u266F", "G", "A\u266D", "A", "B\u266D", "B"], true);
+masterSvg.appendChild(svg);
+animates.push(dgObj.addPolygon);
+animates.push(dgObj.animate);
+animates.push(animate1);
+diagrams.push(dgObj);
+animates.push(addOthers);
+
+function addOthers() {
+    for (let setting = 1; setting < 3; setting++) {
+        let svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("x", (10 + setting * 500).toString());
+        svg.setAttribute("y", "10");
+
+        svg.setAttribute("width", "500");
+        svg.setAttribute("height", "500");
+
+        //masterSvg.appendChild(svg);
 
 
-    let dgObj = buildAnimation(svg, 12, 5, setting, ["C", "C\u266F", "D", "E\u266D", "E", "F", "F\u266F", "G", "A\u266D", "A", "B\u266D", "B"]);
-
-    if (setting > 0)
-        diagrams.push(dgObj);
-    document.body.appendChild(svg);
+        let dgObj = buildAnimation(svg, 12, 5, setting, ["C", "C\u266F", "D", "E\u266D", "E", "F", "F\u266F", "G", "A\u266D", "A", "B\u266D", "B"]);
+        animates.push(dgObj.animate);
+        //masterSvg.appendChild(dgObj.svg);
+        if (setting > 0)
+            diagrams.push(dgObj);
+        //document.body.appendChild(svg);
+        masterSvg.appendChild(svg);
+    }
+    for (let n = 0; n < 2; n++)
+        animates.push(animate1);
 }
 
-let dests = [[-2 * Math.PI * 2 / 12.0, -500], [-2 * Math.PI * 3 / 12.0, -1000]]
+function executeAnimation() {
+    animates.shift()();
+}
+document.body.onclick = executeAnimation;
+
+let dests = [[0, -500], [-2 * Math.PI * 2 / 12.0, -500], [-2 * Math.PI * 3 / 12.0, -1000]]
 function animate1() {
     let d = dests.shift();
     rotate(diagrams.shift(), d[0], d[1]);
@@ -214,14 +310,25 @@ async function rotate(dg, dest, destX) {
     let f = 0;
     let theta = 0;
     let x = 0;
-    let totFrames = 1.5 * 1000 / 50;
+    let totFrames = (1.5 * 1000 / 50) * Math.abs(destX) / 500;
+    let initX = Number(dg.svg.getAttribute("x"));
+    if (dest != 0) {
+        dg.nodes.forEach((visualNode) => {
+            visualNode.name.parentNode.removeChild(visualNode.name);
+        });
+        dg.labelText.parentNode.removeChild(dg.labelText);
+    }
 
     while (f - 1 < totFrames) {
 
 
         dg.svg.setAttribute("transform", "translate(" + x + " 0)");
+        dg.svg.setAttribute("x", (initX + x) + "");
+
+        dg.labelText.setAttribute("x", 250 + Number(dg.svg.getAttribute("x")));
+
         dg.onsetArr.forEach((onset) => { onset.dgRotation = theta });
-        dg.nodes.forEach((node) => { 
+        dg.nodes.forEach((node) => {
             node.dgRotation = theta;
             node.updateSVG();
         });
