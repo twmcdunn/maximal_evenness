@@ -48,12 +48,12 @@ function buildAnimation(svg, specSteps, genSteps, setting, nodeNames, omitPolygo
     svg.appendChild(circ);
     class VisualNode {
         constructor(theta, filled, name) {
-            this.theta = theta - Math.PI / 2.0;
+            this.theta = theta;
             if (this.theta < 0) {
                 this.theta += Math.PI * 2;
             }
             this.initialTheta = this.theta;
-            this.destTheta = 0;
+            this.destTheta = this.theta;
             this.dgRotation = 0;
             this.x = 200 * Math.cos(this.theta) + 250;
             this.y = 200 * Math.sin(this.theta) + 250;
@@ -63,15 +63,15 @@ function buildAnimation(svg, specSteps, genSteps, setting, nodeNames, omitPolygo
             this.name.textContent = name;
             this.name.setAttribute("dominant-baseline", "central");
             this.name.setAttribute("text-anchor", "middle");
-            this.name.setAttribute("x", 225 * Math.cos(this.theta) + 250);
-            this.name.setAttribute("y", 225 * Math.sin(this.theta) + 250);
+            this.name.setAttribute("x", 225 * Math.cos(this.theta - Math.PI / 2.0) + 250);
+            this.name.setAttribute("y", 225 * Math.sin(this.theta - Math.PI / 2.0) + 250);
 
             this.updateSVG();
         }
 
         updateSVG() {
-            this.x = 200 * Math.cos(this.theta + this.dgRotation) + 250;
-            this.y = 200 * Math.sin(this.theta + this.dgRotation) + 250;
+            this.x = 200 * Math.cos(this.theta + this.dgRotation - Math.PI / 2.0) + 250;
+            this.y = 200 * Math.sin(this.theta + this.dgRotation - Math.PI / 2.0) + 250;
             this.svg.setAttribute("cx", this.x.toString());
             this.svg.setAttribute("cy", this.y.toString());
             this.svg.setAttribute("r", "10");
@@ -83,8 +83,8 @@ function buildAnimation(svg, specSteps, genSteps, setting, nodeNames, omitPolygo
             else {
                 this.svg.setAttribute("fill", "white");
             }
-            this.name.setAttribute("x", 225 * Math.cos(this.theta + this.dgRotation) + 250);
-            this.name.setAttribute("y", 225 * Math.sin(this.theta + + this.dgRotation) + 250);
+            this.name.setAttribute("x", 225 * Math.cos(this.theta + this.dgRotation - Math.PI / 2.0) + 250);
+            this.name.setAttribute("y", 225 * Math.sin(this.theta + + this.dgRotation - Math.PI / 2.0) + 250);
         }
     }
 
@@ -245,6 +245,15 @@ function buildAnimation(svg, specSteps, genSteps, setting, nodeNames, omitPolygo
                 }
             });
         });
+        nodes.forEach((node) => {console.log(node.name.textContent + ": " + node.theta)});
+        console.log();
+        onsetArr.forEach((os) => {
+            if(os.curRadians >= 2 * Math.PI){
+                os.curRadians -= 2 * Math.PI;
+            }
+            console.log("OS: " + os.curRadians)
+        });
+        
         calcNodeDests();
 
         //console.log(masterSvg.outerHTML);
@@ -281,17 +290,24 @@ function buildAnimation(svg, specSteps, genSteps, setting, nodeNames, omitPolygo
         let overlappedNodes = [];
         onsetArr.forEach((onset) => {
             nodes.forEach((visualNode) => {
-                console.log(visualNode.name.textContent + ": " + visualNode.theta);
+                //console.log(visualNode.name.textContent + ": " + visualNode.theta);
                 if (Math.abs(visualNode.x - onset.x) < 0.01 && Math.abs(visualNode.y - onset.y) < 0.01) {
                     overlappedNodes.push(visualNode);
                     visualNode.destTheta = onset.initRadians;
+                    if(visualNode.destTheta > 2 * Math.PI){
+                        visualNode.destTheta -= Math.PI * 2;
+                    }
                 }
             });
         });
 
         let nonOverlapped = nodes.filter(node => !node.filled);
+        let orderedArr = [];
+        orderedArr.push(onsetArr);
+        orderedArr.sort((a,b) => a.destRadians - b.destRadians);
+
         nonOverlapped.forEach((visualNode) => {
-            console.log(visualNode.name.textContent);
+            //console.log(visualNode.name.textContent);
             for (let i = 0; i < onsetArr.length; i++) {
                 if (onsetArr[(i + 1) % onsetArr.length].destRadians > visualNode.theta) {
                     let upperBound = onsetArr[(i + 1) % onsetArr.length].destRadians - Math.PI / 2.0;
@@ -301,7 +317,7 @@ function buildAnimation(svg, specSteps, genSteps, setting, nodeNames, omitPolygo
                     if(lowerBound < 0)
                         lowerBound += Math.PI * 2;
                     let percent = (visualNode.theta - lowerBound) / (upperBound - lowerBound);
-                    console.log(upperBound + " " + lowerBound + " " + percent);
+                    //console.log(upperBound + " " + lowerBound + " " + percent);
 
                     upperBound = onsetArr[(i + 1) % onsetArr.length].initRadians - Math.PI / 2.0;
                     if(upperBound < 0)
@@ -310,12 +326,27 @@ function buildAnimation(svg, specSteps, genSteps, setting, nodeNames, omitPolygo
                     if(lowerBound < 0)
                         lowerBound += Math.PI * 2;
                     visualNode.destTheta = lowerBound + percent * (upperBound - lowerBound);
-                    console.log(upperBound + " " + lowerBound + " " + visualNode.destTheta);
-                    console.log();
+                    //console.log(upperBound + " " + lowerBound + " " + visualNode.destTheta);
+                    //console.log();
                     break;
                 }
             }
+            visualNode.destTheta = visualNode.theta;
         });
+
+        let orderedNodes = [];
+        nodes.forEach((node)=>orderedNodes.push(node));
+        orderedNodes.sort((a,b) => a.destTheta - b.destTheta);
+        for(let i = orderedNodes.length; i < orderedNodes.length * 2; i++){
+            if(!orderedNodes[i%orderedNodes.length].filled){
+                orderedNodes[i%orderedNodes.length].destTheta = 
+                (orderedNodes[(i-1)%orderedNodes.length].destTheta + 
+                orderedNodes[(i+1)%orderedNodes.length].destTheta)/2.0;
+                console.log(orderedNodes[(i-1)%orderedNodes.length].destTheta );
+                console.log(orderedNodes[(i+1)%orderedNodes.length].destTheta);
+                console.log();
+            }
+        }
 
     }
 
@@ -344,7 +375,7 @@ svg.setAttribute("y", "10");
 svg.setAttribute("width", "500");
 svg.setAttribute("height", "500");
 
-let dgObj = buildAnimation(svg, 12, 7, 1, ["C", "C\u266F", "D", "E\u266D", "E", "F", "F\u266F", "G", "A\u266D", "A", "B\u266D", "B"], true, 2 * Math.PI * 11 / 12.0);
+let dgObj = buildAnimation(svg, 12, 7, 1, ["E\u266D", "E", "F", "F\u266F", "G", "A\u266D", "A", "B\u266D", "B","C", "C\u266F", "D"], true, 2 * Math.PI * 11 / 12.0);
 masterSvg.appendChild(svg);
 animates.push(dgObj.addPolygon);
 animates.push(dgObj.animate);
